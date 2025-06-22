@@ -23,7 +23,6 @@ jobs:
         run: |
           go mod tidy
           mkdir -p build
-          # build everything under ./... into build/, naming binaries by package path
           for pkg in $(go list ./...); do
             bin=$(basename "$pkg")
             go build -v -o build/"$bin" "$pkg"
@@ -38,7 +37,7 @@ jobs:
         run: go test -v ./...
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: go-build
           path: build/
