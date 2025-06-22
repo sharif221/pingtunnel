@@ -1,78 +1,44 @@
-name: Manual Release
+name: Go
 
 on:
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Git tag to create (e.g. v1.0.0)'
-        required: true
-        default: 'v0.1.0'
-      release_name:
-        description: 'Release title'
-        required: true
-        # default must be static; leave blank if you want to type it each time:
-        default: ''
-      body:
-        description: 'Release notes (Markdown OK)'
-        required: false
-        default: ''
-      prerelease:
-        description: 'Mark as prerelease?'
-        required: true
-        default: 'false'
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.21
 
-      - name: Build
-        id: build
+      - name: Build into build/
         run: |
           go mod tidy
-          go build -o myapp ./...
+          mkdir -p build
+          # build everything under ./... into build/, naming binaries by package path
+          for pkg in $(go list ./...); do
+            bin=$(basename "$pkg")
+            go build -v -o build/"$bin" "$pkg"
+          done
 
-      - name: Upload build artifact
+      - name: List build folder
+        run: |
+          echo "Contents of $GITHUB_WORKSPACE/build:"
+          ls -l build
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
-          name: myapp
-          path: myapp
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Download build artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: myapp
-
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        with:
-          tag_name: ${{ github.event.inputs.tag_name }}
-          release_name: ${{ github.event.inputs.release_name || github.event.inputs.tag_name }}
-          body: ${{ github.event.inputs.body }}
-          draft: false
-          prerelease: ${{ github.event.inputs.prerelease }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload binary to Release
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./myapp
-          asset_name: myapp-${{ runner.os }}-amd64
-          asset_content_type: application/octet-stream
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: go-build
+          path: build/
