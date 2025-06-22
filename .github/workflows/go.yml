@@ -2,13 +2,16 @@ name: Go
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
 
     steps:
       - name: Checkout repo
@@ -19,24 +22,22 @@ jobs:
         with:
           go-version: 1.21
 
-      - name: Build static Linux/AMD64 binaries
+      - name: Build static Linux binaries
         env:
           CGO_ENABLED: 0
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
         run: |
           go mod tidy
           mkdir -p build
           for pkg in $(go list ./...); do
             bin=$(basename "$pkg")
-            CGO_ENABLED=0 \
-            GOOS=linux \
-            GOARCH=arm64 \
             go build -v \
               -trimpath \
-              -ldflags="-s -w -extldflags '-static'" \
-              -o build/"$bin" \
+              -ldflags "-s -w -extldflags '-static'" \
+              -o build/"${bin}-${{ matrix.arch }}" \
               "$pkg"
           done
-
 
       - name: List build folder
         run: |
