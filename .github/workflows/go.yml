@@ -1,16 +1,25 @@
+name: Go
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: 1.21
 
-      - name: Build static binaries into build/
+      - name: Build static Linux/AMD64 binaries
         env:
           CGO_ENABLED: 0
         run: |
@@ -18,11 +27,24 @@ jobs:
           mkdir -p build
           for pkg in $(go list ./...); do
             bin=$(basename "$pkg")
-            GOOS=linux GOARCH=amd64 go build -v -o build/"$bin" "$pkg"
+            CGO_ENABLED=0 \
+            GOOS=linux \
+            GOARCH=amd64 \
+            go build -v \
+              -trimpath \
+              -ldflags="-s -w -extldflags '-static'" \
+              -o build/"$bin" \
+              "$pkg"
           done
 
+
       - name: List build folder
-        run: ls -l build
+        run: |
+          echo "Contents of $GITHUB_WORKSPACE/build:"
+          ls -l build
+
+      - name: Run tests
+        run: go test -v ./...
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
