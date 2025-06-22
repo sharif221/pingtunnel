@@ -10,7 +10,8 @@ on:
       release_name:
         description: 'Release title'
         required: true
-        default: 'Release ${{ github.event.inputs.tag_name }}'
+        # default must be static; leave blank if you want to type it each time:
+        default: ''
       body:
         description: 'Release notes (Markdown OK)'
         required: false
@@ -23,8 +24,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    outputs:
-      artifact-path: ${{ steps.build.outputs.binary-path }}
     steps:
       - uses: actions/checkout@v3
 
@@ -38,13 +37,12 @@ jobs:
         run: |
           go mod tidy
           go build -o myapp ./...
-          echo "::set-output name=binary-path::myapp"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v3
         with:
           name: myapp
-          path: ${{ steps.build.outputs.binary-path }}
+          path: myapp
 
   release:
     needs: build
@@ -52,7 +50,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Download artifact
+      - name: Download build artifact
         uses: actions/download-artifact@v3
         with:
           name: myapp
@@ -62,7 +60,7 @@ jobs:
         uses: actions/create-release@v1
         with:
           tag_name: ${{ github.event.inputs.tag_name }}
-          release_name: ${{ github.event.inputs.release_name }}
+          release_name: ${{ github.event.inputs.release_name || github.event.inputs.tag_name }}
           body: ${{ github.event.inputs.body }}
           draft: false
           prerelease: ${{ github.event.inputs.prerelease }}
